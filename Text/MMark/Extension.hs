@@ -90,6 +90,9 @@ module Text.MMark.Extension
   , Inline (..)
   , inlineTrans
   , inlineRender
+    -- *** Helpers for manipulating inlines
+  , mapInlineText
+  , mapInlineRecursively
     -- * Scanner construction
   , scanner
   , scannerM
@@ -100,6 +103,7 @@ module Text.MMark.Extension
 where
 
 import Data.Monoid hiding ((<>))
+import Data.Text (Text)
 import Lucid
 import Text.MMark.Type
 import Text.MMark.Util
@@ -143,6 +147,41 @@ inlineRender
   :: ((Inline -> Html ()) -> Inline -> Html ())
   -> Extension
 inlineRender f = mempty { extInlineRender = Render f }
+
+-- | Apply a function to the text of an 'Inline'. Code spans are left
+-- unchanged: this targets body text and link or image titiles only.
+
+mapInlineText :: (Text -> Text) -> Inline -> Inline
+mapInlineText f inline = case inline of
+  Plain text ->
+    Plain (f text)
+  Link text destination mbTitle ->
+    Link text destination (f <$> mbTitle)
+  Image text destination mbTitle ->
+    Image text destination (f <$> mbTitle)
+  _ ->
+    inline
+
+-- | Transform this inline and all nested inlines it contains, bottom-up.
+
+mapInlineRecursively :: (Inline -> Inline) -> Inline -> Inline
+mapInlineRecursively f inline = f $ case inline of
+  Emphasis inlines ->
+    Emphasis (f <$> inlines)
+  Strong inlines ->
+    Strong (f <$> inlines)
+  Strikeout inlines ->
+    Strikeout (f <$> inlines)
+  Subscript inlines ->
+    Subscript (f <$> inlines)
+  Superscript inlines ->
+    Superscript (f <$> inlines)
+  Link inlines url title ->
+    Link (f <$> inlines) url title
+  Image inlines url title ->
+    Image (f <$> inlines) url title
+  _ ->
+    inline
 
 -- | Create a 'L.Fold' from an initial state and a folding function.
 

@@ -1939,11 +1939,15 @@ spec = parallel $ do
           e2 = err (posN 8 s) (utok 'B' <> etok 'Z')
       MMark.parseErrorsPretty s (e0:|[e1,e2]) `shouldBe`
         "1:1:\n  |\n1 | Foo\n  | ^\nunexpected 'F'\nexpecting 'Z'\n2:1:\n  |\n2 | Bar\n  | ^\nunexpected 'B'\nexpecting 'Z'\n3:1:\n  |\n3 | Baz\n  | ^\nunexpected 'B'\nexpecting 'Z'\n"
-  describe "useExtension" $
+  describe "useExtension" $ do
     it "applies given extension" $ do
       doc <- mkDoc "Here we go."
       toText (MMark.useExtension (append_ext "..") doc) `shouldBe`
         "<p>Here we go...</p>\n"
+    it "applies given extension to nested elements" $ do
+      doc <- mkDoc "Here we *go*!"
+      toText (MMark.useExtension (append_recursively_ext "..") doc) `shouldBe`
+        "<p>Here we ..<em>go..</em>!..</p>\n"
   describe "useExtensions" $
     it "applies extensions in the right order" $ do
       doc <- mkDoc "Here we go."
@@ -2003,6 +2007,13 @@ spec = parallel $ do
 
 append_ext :: Text -> MMark.Extension
 append_ext y = Ext.inlineTrans $ \case
+  Plain x -> Plain (x <> y)
+  other   -> other
+
+-- | Append given text to all 'Plain blocks', including nested ones.
+
+append_recursively_ext :: Text -> MMark.Extension
+append_recursively_ext y = Ext.inlineTrans $ Ext.mapInlineRecursively $ \case
   Plain x -> Plain (x <> y)
   other   -> other
 
